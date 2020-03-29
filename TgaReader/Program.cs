@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Runtime.InteropServices;
 
 namespace TgaReader
 {
@@ -28,36 +27,33 @@ namespace TgaReader
 
             using (FileStream stream = new FileStream(args[0], FileMode.Open, FileAccess.Read))
             {
-                using (BinaryReader reader = new BinaryReader(stream))
+                using BinaryReader reader = new BinaryReader(stream);
+                header.IdLength = reader.ReadByte();
+                header.ColorMapType = reader.ReadByte();
+                header.ImageType = reader.ReadByte();
+
+                header.ColorMapSpecification.FirstEntryIndex = reader.ReadUInt16();
+                header.ColorMapSpecification.ColorMapLength = reader.ReadUInt16();
+                header.ColorMapSpecification.ColorMapEntrySize = reader.ReadByte();
+
+
+                header.ImageSpecification.XOrigin = reader.ReadUInt16();
+                header.ImageSpecification.YOrigin = reader.ReadUInt16();
+                header.ImageSpecification.ImageWidth = reader.ReadUInt16();
+                header.ImageSpecification.ImageHeight = reader.ReadUInt16();
+                header.ImageSpecification.PixelDepth = reader.ReadByte();
+                header.ImageSpecification.ImageDescriptor = reader.ReadByte();
+
+                header.ColorMapData.TgaColors = new TgaColor[256];
+                for (int i = 0; i < 256; i++)
                 {
-                    header = new TgaHeader();
-                    header.IdLength = reader.ReadByte();
-                    header.ColorMapType = reader.ReadByte();
-                    header.ImageType = reader.ReadByte();
-
-                    header.ColorMapSpecification.FirstEntryIndex = reader.ReadUInt16();
-                    header.ColorMapSpecification.ColorMapLength = reader.ReadUInt16();
-                    header.ColorMapSpecification.ColorMapEntrySize = reader.ReadByte();
-
-
-                    header.ImageSpecification.XOrigin = reader.ReadUInt16();
-                    header.ImageSpecification.YOrigin = reader.ReadUInt16();
-                    header.ImageSpecification.ImageWidth = reader.ReadUInt16();
-                    header.ImageSpecification.ImageHeight = reader.ReadUInt16();
-                    header.ImageSpecification.PixelDepth = reader.ReadByte();
-                    header.ImageSpecification.ImageDescriptor = reader.ReadByte();
-
-                    header.ColorMapData.TgaColors =  new TgaColor[256];
-                    for (int i = 0; i < 256; i++)
-                    {
-                        header.ColorMapData.TgaColors[i].Blue = reader.ReadByte();
-                        header.ColorMapData.TgaColors[i].Green = reader.ReadByte();
-                        header.ColorMapData.TgaColors[i].Red = reader.ReadByte();
-                    }
+                    header.ColorMapData.TgaColors[i].Blue = reader.ReadByte();
+                    header.ColorMapData.TgaColors[i].Green = reader.ReadByte();
+                    header.ColorMapData.TgaColors[i].Red = reader.ReadByte();
                 }
             }
 
-            Console.WriteLine("TGA Info:");
+            Console.WriteLine($"TGA Info: {args[0]}");
             Console.WriteLine();
             Console.WriteLine($"  ColorMapLength:    {header.ColorMapSpecification.ColorMapLength}");
             Console.WriteLine($"  ColorMapEntrySize: {header.ColorMapSpecification.ColorMapEntrySize}");

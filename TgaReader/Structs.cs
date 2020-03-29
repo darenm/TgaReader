@@ -1,63 +1,104 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Text;
 
 namespace TgaReader
 {
     /*
-    Image ID length (field 1)
+    Source - http://paulbourke.net/dataformats/tga/
 
-    0–255 The number of bytes that the image ID field consists of. The image ID field can contain any information, but it is common for it to contain the date and time the image was created or a serial number.
-
-    As of version 2.0 of the TGA spec, the date and time the image was created is catered for in the extension area.
-
-    Color map type (field 2)
-
-    has the value:
-
-        0 if image file contains no color map
-        1 if present
-        2–127 reserved by Truevision
-        128–255 available for developer use
-
-    Image type (field 3)
-
-    is enumerated in the lower three bits, with the fourth bit as a flag for RLE. Some possible values are:
-
-        0 no image data is present
-        1 uncompressed color-mapped image
-        2 uncompressed true-color image
-        3 uncompressed black-and-white (grayscale) image
-        9 run-length encoded color-mapped image
-        10 run-length encoded true-color image
-        11 run-length encoded black-and-white (grayscale) image
-        Image type 1 and 9: Depending on the Pixel Depth value, image data representation is an 8, 15, or 16 bit index into a 
-            color map that defines the color of the pixel. Image type 2 and 10: The image data is a direct representation of the pixel color. 
-            For a Pixel Depth of 15 and 16 bit, each pixel is stored with 5 bits per color. If the pixel depth is 16 bits, the topmost bit is 
-            reserved for transparency. For a pixel depth of 24 bits, each pixel is stored with 8 bits per color. A 32-bit pixel depth defines 
-            an additional 8-bit alpha channel. Image type 3 and 11: The image data is a direct representation of grayscale data. The pixel 
-            depth is 8 bits for images of this type.
-
-    Color map specification (field 4)
-
-    has three subfields:
-
-    First entry index (2 bytes): index of first color map entry that is included in the file
-    Color map length (2 bytes): number of entries of the color map that are included in the file
-    Color map entry size (1 byte): number of bits per pixel
-    In case that not the entire color map is actually used by the image, a non-zero first entry index allows to store only a required part of the color map in the file.
-
-    Image specification (field 5)
-
-    has six subfields:
-
-    X-origin (2 bytes): absolute coordinate of lower-left corner for displays where origin is at the lower left
-    Y-origin (2 bytes): as for X-origin
-    Image width (2 bytes): width in pixels
-    Image height (2 bytes): height in pixels
-    Pixel depth (1 byte): bits per pixel
-    Image descriptor (1 byte): bits 3-0 give the alpha channel depth, bits 5-4 give direction
+    DATA TYPE 1: Color-mapped images
+    ________________________________________________________________________________
+    | Offset | Length |                     Description                            |
+    |--------|--------|------------------------------------------------------------|
+    |    0   |     1  |  Number of Characters in Identification Field.             |
+    |        |        |                                                            |
+    |        |        |  This field is a one-byte unsigned integer, specifying     |
+    |        |        |  the length of the Image Identification Field.  Its range  |
+    |        |        |  is 0 to 255.  A value of 0 means that no Image            |
+    |        |        |  Identification Field is included.                         |
+    |--------|--------|------------------------------------------------------------|
+    |    1   |     1  |  Color Map Type.                                           |
+    |        |        |                                                            |
+    |        |        |  This field contains a binary 1 for Data Type 1 images.    |
+    |--------|--------|------------------------------------------------------------|
+    |    2   |     1  |  Image Type Code.                                          |
+    |        |        |                                                            |
+    |        |        |  This field will always contain a binary 1.                |
+    |        |        |  ( That's what makes it Data Type 1 ).                     |
+    |--------|--------|------------------------------------------------------------|
+    |    3   |     5  |  Color Map Specification.                                  |
+    |        |        |                                                            |
+    |    3   |     2  |  Color Map Origin.                                         |
+    |        |        |  Integer ( lo-hi ) index of first color map entry.         |
+    |    5   |     2  |  Color Map Length.                                         |
+    |        |        |  Integer ( lo-hi ) count of color map entries.             |
+    |    7   |     1  |  Color Map Entry Size.                                     |
+    |        |        |  Number of bits in each color map entry.  16 for           |
+    |        |        |  the Targa 16, 24 for the Targa 24, 32 for the Targa 32.   |
+    |--------|--------|------------------------------------------------------------|
+    |    8   |    10  |  Image Specification.                                      |
+    |        |        |                                                            |
+    |    8   |     2  |  X Origin of Image.                                        |
+    |        |        |  Integer ( lo-hi ) X coordinate of the lower left corner   |
+    |        |        |  of the image.                                             |
+    |   10   |     2  |  Y Origin of Image.                                        |
+    |        |        |  Integer ( lo-hi ) Y coordinate of the lower left corner   |
+    |        |        |  of the image.                                             |
+    |   12   |     2  |  Width of Image.                                           |
+    |        |        |  Integer ( lo-hi ) width of the image in pixels.           |
+    |   14   |     2  |  Height of Image.                                          |
+    |        |        |  Integer ( lo-hi ) height of the image in pixels.          |
+    |   16   |     1  |  Image Pixel Size.                                         |
+    |        |        |  Number of bits in a stored pixel index.                   |
+    |   17   |     1  |  Image Descriptor Byte.                                    |
+    |        |        |  Bits 3-0 - number of attribute bits associated with each  |
+    |        |        |             pixel.                                         |
+    |        |        |  Bit 4    - reserved.  Must be set to 0.                   |
+    |        |        |  Bit 5    - screen origin bit.                             |
+    |        |        |             0 = Origin in lower left-hand corner.          |
+    |        |        |             1 = Origin in upper left-hand corner.          |
+    |        |        |             Must be 0 for Truevision images.               |
+    |        |        |  Bits 7-6 - Data storage interleaving flag.                |
+    |        |        |             00 = non-interleaved.                          |
+    |        |        |             01 = two-way (even/odd) interleaving.          |
+    |        |        |             10 = four way interleaving.                    |
+    |        |        |             11 = reserved.                                 |
+    |        |        |  This entire byte should be set to 0.  Don't ask me.       |
+    |--------|--------|------------------------------------------------------------|
+    |   18   | varies |  Image Identification Field.                               |
+    |        |        |                                                            |
+    |        |        |  Contains a free-form identification field of the length   |
+    |        |        |  specified in byte 1 of the image record.  It's usually    |
+    |        |        |  omitted ( length in byte 1 = 0 ), but can be up to 255    |
+    |        |        |  characters.  If more identification information is        |
+    |        |        |  required, it can be stored after the image data.          |
+    |--------|--------|------------------------------------------------------------|
+    | varies | varies |  Color map data.                                           |
+    |        |        |                                                            |
+    |        |        |  The offset is determined by the size of the Image         |
+    |        |        |  Identification Field.  The length is determined by        |
+    |        |        |  the Color Map Specification, which describes the          |
+    |        |        |  size of each entry and the number of entries.             |
+    |        |        |  Each color map entry is 2, 3, or 4 bytes.                 |
+    |        |        |  Unused bits are assumed to specify attribute bits.        |
+    |        |        |  The 4 byte entry contains 1 byte for blue, 1 byte         |
+    |        |        |  for green, 1 byte for red, and 1 byte of attribute        |
+    |        |        |  information, in that order.                               |
+    |        |        |  The 3 byte entry contains 1 byte each of blue, green,     |
+    |        |        |  and red.                                                  |
+    |        |        |  The 2 byte entry is broken down as follows:               |
+    |        |        |  ARRRRRGG GGGBBBBB, where each letter represents a bit.    |
+    |        |        |  But, because of the lo-hi storage order, the first byte   |
+    |        |        |  coming from the file will actually be GGGBBBBB, and the   |
+    |        |        |  second will be ARRRRRGG. "A" represents an attribute bit. |
+    |--------|--------|------------------------------------------------------------|
+    | varies | varies |  Image Data Field.                                         |
+    |        |        |                                                            |
+    |        |        |  This field specifies (width) x (height) color map         |
+    |        |        |  indices.  Each index is stored as an integral number      |
+    |        |        |  of bytes (typically 1 or 2).   All fields are unsigned.   |
+    |        |        |  The low-order byte of a two-byte field is stored first.   |
+    --------------------------------------------------------------------------------
      */
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     struct TgaHeader
